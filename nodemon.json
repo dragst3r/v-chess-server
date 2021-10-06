@@ -1,0 +1,6 @@
+{
+    "watch": "server.ts",
+    "ext": "ts,json",
+    "ignore": ["v-chess-server/**/*.spec.ts"],
+    "exec": "npx ts-node server.ts"     
+  }
