@@ -23,6 +23,8 @@ function addPlayerToRoom(id: string, player: User) {
   }
 }
 
+// ++add function for finding room and returning its value or false
+
 function checkIfRoomsIsOpen(id:string):boolean{
   let roomFound = false
   rooms.map(r=>{if(r.roomId===id){
@@ -30,7 +32,16 @@ function checkIfRoomsIsOpen(id:string):boolean{
   }})
   return roomFound
 }
+
+function getRoomPlayers(roomId: string):User[]{
+  let users: User[] 
+  rooms.map(r=>{if(r.roomId===roomId){
+    users = [...r.players]
+  }})
+  return users
+}
 io.on("connection", (socket: any) => {
+  console.log(rooms)
   socket.on("get-rooms", () => {
     socket.emit("available-rooms", rooms);
   });
@@ -42,10 +53,15 @@ io.on("connection", (socket: any) => {
   socket.on("join-room", (roomId: string, userId: string) => {
     if (checkIfRoomsIsOpen(roomId)) {
       addPlayerToRoom(roomId, { id: userId, side: "" });
+      console.log(rooms)
       socket.join(roomId);
       socket.emit("joined-room", rooms[roomId]);
     } else {
       socket.emit("room-closed");
     }
   });
+  socket.on('get-room-info',(roomId)=>{
+    console.log(roomId)
+    socket.emit('room-info',getRoomPlayers(roomId))
+  })
 });
