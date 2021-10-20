@@ -1,67 +1,63 @@
 const io = require("socket.io")(3000, {
   cors: {
-    origin: ["http://localhost:3001"],
+    origin: "*",
   },
 });
-console.log("start2");
+console.log("start");
 type User = {
-  id: string;
+  userId: string | null;
+  displayName: string | null;
+  photoURL: string | null;
   side: string;
 };
 type Room = {
   roomId: string;
   players: User[];
 };
-let rooms: Room[] = [];
+let rooms: Record<string, Room> = {};
 
-function addPlayerToRoom(id: string, player: User) {
-  for (let i = 0; i <= rooms.length; i++) {
-    if (rooms[i].roomId === id) {
-      rooms[i].players.push(player);
-      break;
-    }
-  }
+function addPlayerToRoom(roomdId: string, user: User) {
+  //Check if player is in room
+  let playerInRoom = false;
+  rooms[roomdId].players.map((player) => {
+    if (player.userId === user.userId) playerInRoom = true;
+  });
+  if (typeof user.side === "undefined") user.side = "";
+  if (!playerInRoom) rooms[roomdId].players.push(user);
 }
 
-// ++add function for finding room and returning its value or false
-
-function checkIfRoomsIsOpen(id:string):boolean{
-  let roomFound = false
-  rooms.map(r=>{if(r.roomId===id){
-    roomFound =  true
-  }})
-  return roomFound
-}
-
-function getRoomPlayers(roomId: string):User[]{
-  let users: User[] 
-  rooms.map(r=>{if(r.roomId===roomId){
-    users = [...r.players]
-  }})
-  return users
-}
 io.on("connection", (socket: any) => {
-  console.log(rooms)
+  console.log("connected", socket.id);
   socket.on("get-rooms", () => {
     socket.emit("available-rooms", rooms);
   });
   socket.on("disconnect", (m: any) => console.log("room closed"));
   socket.on("create-room", () => {
-    rooms.push({ roomId: socket.id, players: [] });
+    rooms[socket.id] = { roomId: socket.id, players: [] };
     socket.emit("room-created", socket.id, rooms[socket.id]);
   });
-  socket.on("join-room", (roomId: string, userId: string) => {
-    if (checkIfRoomsIsOpen(roomId)) {
-      addPlayerToRoom(roomId, { id: userId, side: "" });
-      console.log(rooms)
+  socket.on("join-room", (roomId: string, user: User) => {
+    console.log("new join room");
+    if (rooms[roomId]) {
+      addPlayerToRoom(roomId, user);
       socket.join(roomId);
-      socket.emit("joined-room", rooms[roomId]);
+      console.log("joined room", rooms[roomId].players);
+      io.to(roomId).emit("joined-room", rooms[roomId].players);
     } else {
       socket.emit("room-closed");
     }
   });
-  socket.on('get-room-info',(roomId)=>{
-    console.log(roomId)
-    socket.emit('room-info',getRoomPlayers(roomId))
-  })
+  socket.on("get-room-info", (roomId) => {
+    io.to(roomId).emit("room-info", rooms[roomId].players);
+  });
+
+  socket.on("select-side", (side: string, playerId: string, roomId: string) => {
+
+    rooms[roomId].players.map((player) => {
+      if (player.userId === playerId) {
+        player.side = side;
+      }
+    });
+    io.to(roomId).emit("joined-room", rooms[roomId].players);
+  });
 });
